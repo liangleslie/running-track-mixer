@@ -45,7 +45,12 @@ def resolve_binary(name: str) -> str:
 
     # macOS Finder-launched .app bundles often omit Homebrew paths from PATH
     if sys.platform == "darwin":
-        for mac_dir in ("/opt/homebrew/bin", "/usr/local/bin"):
+        for mac_dir in (
+            "/opt/homebrew/opt/ffmpeg-full/bin",
+            "/usr/local/opt/ffmpeg-full/bin",
+            "/opt/homebrew/bin",
+            "/usr/local/bin",
+        ):
             cand = Path(mac_dir) / name
             if cand.is_file():
                 return str(cand)

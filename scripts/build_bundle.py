@@ -195,7 +195,7 @@ def main() -> int:
 
     if sys.platform == "darwin":
         app_path = ROOT / "dist" / "RunningTracksMixer.app"
-        subprocess.run(["codesign", "--force", "--deep", "--sign", "-", str(app_path)], check=True)
+        subprocess.run(["codesign", "--verify", "--deep", "--strict", str(app_path)], check=True)
 
     exe_path = _frozen_executable()
     if args.smoke_test:
