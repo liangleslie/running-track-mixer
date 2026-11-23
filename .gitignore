@@ -12,6 +12,7 @@ env/
 dist/
 build/
 *.egg-info/
+packaging/bin/
 
 # Testing & linting caches
 .pytest_cache/
@@ -22,6 +23,7 @@ htmlcov/
 
 # Project work & media directories
 tracks/
+tracks2/
 output/
 work/
 

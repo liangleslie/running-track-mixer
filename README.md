@@ -125,18 +125,57 @@ Stretching a `90 BPM` ballad to `180 BPM` (`2.0x`) destroys musicality. `rtmix` 
 
 ---
 
+## Portable Desktop App Bundling (Windows / macOS / Linux)
+
+`rtmix` packages into standalone portable archives with PySide6, Python, scientific dependencies, and bundled `ffmpeg`/`ffprobe` (`librubberband` + `libmp3lame`) — no Python installation required by end users.
+
+### Local Build, Smoke Test & Archive
+
+```bash
+uv sync --dev
+uv run python scripts/build_bundle.py --smoke-test --archive
+```
+
+- Looks for `ffmpeg`/`ffprobe` in `packaging/bin/` first, then system `PATH` (verifying `rubberband` and `libmp3lame` support before bundling).
+- Runs two frozen smoke tests (`--self-test-gui` offscreen startup + 2-worker DSP build with stripped `PATH` so only bundled `ffmpeg` is used).
+- Outputs per-OS portable archives in `dist/`:
+  - Windows: `dist/RunningTracksMixer-windows-x64.zip`
+  - macOS: `dist/RunningTracksMixer-macos-arm64.dmg` (containing `RunningTracksMixer.app`)
+  - Linux: `dist/RunningTracksMixer-linux-x64.tar.gz`
+
+### Automated Multi-OS GitHub Actions Releases
+
+[build-release.yml](.github/workflows/build-release.yml) builds native bundles on `windows-latest`, `macos-latest`, and `ubuntu-latest` automatically on tag push or manual workflow dispatch:
+
+```bash
+git tag v0.1.0 && git push --tags
+```
+
+Or trigger via **GitHub Actions -> Build Portable Releases -> Run workflow**.
+
+---
+
 ## Project Layout
 
 ```text
 running-tracks-mixer/
+├── .github/workflows/
+│   └── build-release.yml
 ├── pyproject.toml
 ├── README.md
+├── packaging/
+│   ├── entry_gui.py    # Frozen entrypoint (freeze_support + GUI/CLI dispatch)
+│   └── rtmix.spec      # PyInstaller --onedir / macOS .app spec
+├── scripts/
+│   └── build_bundle.py # Build + smoke-test + portable archive helper
 ├── specs/
 │   ├── 01-overview-and-architecture.md
 │   ├── 02-audio-dsp-pipeline.md
 │   └── 03-data-schemas-and-cli.md
 ├── src/rtmix/
-│   ├── cli.py          # CLI argument parser & subcommands (build, analyze, verify)
+│   ├── cli.py          # CLI argument parser & subcommands (build, analyze, verify, gui)
+│   ├── gui.py          # PySide6 (Qt 6) desktop GUI
+│   ├── runtime.py      # Bundled ffmpeg/ffprobe resolution & frozen cache paths
 │   ├── models.py       # TrackMetadata & MashupManifest dataclasses + JSON I/O
 │   ├── analyzer.py     # Steps 1-3: Musical bounds, HPSS beat tracking, Theil-Sen BPM
 │   ├── processor.py    # Steps 4-5: FFmpeg rubberband + loudnorm + phase verification

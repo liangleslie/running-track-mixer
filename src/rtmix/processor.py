@@ -7,6 +7,7 @@ import subprocess
 
 from rtmix.analyzer import SAMPLE_RATE, verify_stretched_track
 from rtmix.models import TrackMetadata
+from rtmix.runtime import resolve_binary, subprocess_kwargs
 
 BPM_TOLERANCE = 0.80
 
@@ -28,7 +29,7 @@ def run_ffmpeg_stretch_and_normalize(
         f"loudnorm=I={loudness_lufs:.1f}:TP=-1.5:LRA=11.0"
     )
     cmd = [
-        "ffmpeg",
+        resolve_binary("ffmpeg"),
         "-y",
         "-v",
         "error",
@@ -46,7 +47,7 @@ def run_ffmpeg_stretch_and_normalize(
         "pcm_f32le",
         str(output_wav_path),
     ]
-    subprocess.run(cmd, check=True)
+    subprocess.run(cmd, check=True, **subprocess_kwargs())
 
 
 def process_and_verify_track(

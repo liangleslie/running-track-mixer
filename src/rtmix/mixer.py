@@ -12,6 +12,7 @@ import soundfile as sf
 from rtmix.analyzer import SAMPLE_RATE
 from rtmix.metronome import beat_to_sample_index, render_metronome_track
 from rtmix.models import MashupManifest, TrackCueEntry, TrackMetadata
+from rtmix.runtime import resolve_binary, subprocess_kwargs
 
 
 def assemble_mashup(
@@ -199,7 +200,7 @@ def assemble_mashup(
 def encode_to_mp3(stereo_buf: np.ndarray, output_mp3_path: Path, sr: int = SAMPLE_RATE) -> None:
     """Pipe stereo float32 array directly into FFmpeg libmp3lame encoder."""
     cmd = [
-        "ffmpeg",
+        resolve_binary("ffmpeg"),
         "-y",
         "-v",
         "error",
@@ -217,7 +218,7 @@ def encode_to_mp3(stereo_buf: np.ndarray, output_mp3_path: Path, sr: int = SAMPL
         "192k",
         str(output_mp3_path),
     ]
-    proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+    proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stderr=subprocess.PIPE, **subprocess_kwargs())
     assert proc.stdin is not None
     # Stream in 1MB chunks to avoid large pipe buffer copy
     raw_bytes = np.ascontiguousarray(stereo_buf, dtype=np.float32).tobytes()

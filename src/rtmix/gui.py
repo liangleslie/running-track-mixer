@@ -52,6 +52,7 @@ from rtmix.pipeline import (
     discover_audio_files,
     run_pipeline,
 )
+from rtmix.runtime import default_output_mp3_path
 
 
 def open_folder_in_explorer(folder: Path) -> None:
@@ -224,7 +225,7 @@ class RtmixMainWindow(QMainWindow):
         grid.addWidget(QLabel("Output MP3:"), 0, 0)
         out_row = QHBoxLayout()
         out_row.setSpacing(8)
-        self.output_edit = QLineEdit("output/mashup.mp3")
+        self.output_edit = QLineEdit(str(default_output_mp3_path()))
         out_row.addWidget(self.output_edit, 1)
 
         browse_out_btn = QPushButton("Browse...")
@@ -546,7 +547,7 @@ class RtmixMainWindow(QMainWindow):
         self._refresh_queue_display()
 
     def _on_browse_output(self) -> None:
-        initial = Path(self.output_edit.text().strip() or "output/mashup.mp3")
+        initial = Path(self.output_edit.text().strip() or str(default_output_mp3_path()))
         start_dir = initial.parent if initial.parent.exists() else Path.cwd()
         chosen, _ = QFileDialog.getSaveFileName(
             self,
@@ -558,7 +559,7 @@ class RtmixMainWindow(QMainWindow):
             self.output_edit.setText(chosen)
 
     def _on_open_output_folder(self) -> None:
-        out_path = Path(self.output_edit.text().strip() or "output/mashup.mp3")
+        out_path = Path(self.output_edit.text().strip() or str(default_output_mp3_path()))
         try:
             open_folder_in_explorer(out_path.parent)
         except Exception as exc:
@@ -625,7 +626,7 @@ class RtmixMainWindow(QMainWindow):
         metronome_gain_db = self.metro_gain_slider.value() / 2.0
         crossfade_beats = int(self.crossfade_spin.value())
         lead_beats = int(self.lead_beats_spin.value())
-        output_mp3 = Path(self.output_edit.text().strip() or "output/mashup.mp3")
+        output_mp3 = Path(self.output_edit.text().strip() or str(default_output_mp3_path()))
         force = bool(self.force_cb.isChecked())
         rebuild = bool(self.rebuild_cb.isChecked())
         inputs = list(self.queued_paths)

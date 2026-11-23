@@ -182,6 +182,16 @@ def main() -> None:
         assert win.adv_frame.isHidden() is False
         win.close()
 
+        # 9. Runtime helper checks (binary resolution & dev defaults)
+        from rtmix.runtime import default_output_mp3_path, default_work_dir, resolve_binary
+
+        ffmpeg_bin = resolve_binary("ffmpeg")
+        ffprobe_bin = resolve_binary("ffprobe")
+        assert Path(ffmpeg_bin).is_file(), f"ffmpeg binary not found: {ffmpeg_bin}"
+        assert Path(ffprobe_bin).is_file(), f"ffprobe binary not found: {ffprobe_bin}"
+        assert default_work_dir() == Path("work")
+        assert default_output_mp3_path() == Path("output/mashup.mp3")
+
     print("ALL SELF-CHECKS PASSED.")
 
 

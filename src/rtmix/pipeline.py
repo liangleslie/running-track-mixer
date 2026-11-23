@@ -19,6 +19,7 @@ from rtmix.analyzer import (
 from rtmix.mixer import assemble_mashup
 from rtmix.models import MashupManifest, TrackMetadata
 from rtmix.processor import process_and_verify_track
+from rtmix.runtime import default_work_dir
 
 SUPPORTED_EXTENSIONS = {".mp3", ".m4a", ".aac", ".wav", ".flac", ".ogg", ".opus"}
 
@@ -414,7 +415,7 @@ def run_pipeline(
     harmonic_factors: list[float] | None = None,
     min_stretch: float = 0.85,
     max_stretch: float = 1.35,
-    work_dir: Path = Path("work"),
+    work_dir: Path | None = None,
     limit: int | None = None,
     random_sample: int | None = None,
     seed: int | None = None,
@@ -427,6 +428,8 @@ def run_pipeline(
     cancel_event: threading.Event | None = None,
 ) -> MashupManifest:
     """Execute full 7-step mashup pipeline across input_dir with parallel track processing."""
+    if work_dir is None:
+        work_dir = default_work_dir()
     if harmonic_factors is None:
         harmonic_factors = list(DEFAULT_HARMONIC_FACTORS)
 

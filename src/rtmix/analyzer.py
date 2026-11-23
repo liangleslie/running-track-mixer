@@ -22,6 +22,7 @@ from rtmix.models import (
     TargetConfig,
     TrackMetadata,
 )
+from rtmix.runtime import resolve_binary, subprocess_kwargs
 
 SAMPLE_RATE = 44100
 HOP_COARSE = 512
@@ -48,7 +49,7 @@ def make_track_id(path: Path, sha_prefix: str) -> str:
 def probe_source_info(path: Path) -> SourceInfo:
     sha_prefix = compute_sha256_prefix(path)
     cmd = [
-        "ffprobe",
+        resolve_binary("ffprobe"),
         "-v",
         "error",
         "-select_streams",
@@ -59,7 +60,7 @@ def probe_source_info(path: Path) -> SourceInfo:
         "json",
         str(path),
     ]
-    res = subprocess.run(cmd, capture_output=True, text=True, check=True)
+    res = subprocess.run(cmd, capture_output=True, text=True, check=True, **subprocess_kwargs())
     info = json.loads(res.stdout)
     stream = (info.get("streams") or [{}])[0]
     fmt = info.get("format") or {}
@@ -86,7 +87,7 @@ def decode_audio_mono(path: Path, sr: int = SAMPLE_RATE) -> np.ndarray:
         return y_mono
 
     cmd = [
-        "ffmpeg",
+        resolve_binary("ffmpeg"),
         "-v",
         "error",
         "-threads",
@@ -101,7 +102,7 @@ def decode_audio_mono(path: Path, sr: int = SAMPLE_RATE) -> np.ndarray:
         str(sr),
         "-",
     ]
-    res = subprocess.run(cmd, capture_output=True, check=True)
+    res = subprocess.run(cmd, capture_output=True, check=True, **subprocess_kwargs())
     return np.frombuffer(res.stdout, dtype=np.float32).copy()
 
 
