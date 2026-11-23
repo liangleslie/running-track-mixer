@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Sequence
 from concurrent.futures import ProcessPoolExecutor, as_completed
 import os
 from pathlib import Path
 import random
+import threading
 
 from rtmix.analyzer import (
     DEFAULT_HARMONIC_FACTORS,
@@ -20,6 +22,9 @@ from rtmix.processor import process_and_verify_track
 
 SUPPORTED_EXTENSIONS = {".mp3", ".m4a", ".aac", ".wav", ".flac", ".ogg", ".opus"}
 
+LogCallback = Callable[[str], None]
+ProgressCallback = Callable[[int, int], None]
+
 
 def default_workers() -> int:
     """Return sensible default worker process count (half of logical CPUs, at least 1)."""
@@ -32,23 +37,39 @@ def _init_worker() -> None:
         os.environ.setdefault(var, "2")
 
 
+def _emit_log(msg: str, log_fn: LogCallback | None = None) -> None:
+    print(msg, flush=True)
+    if log_fn is not None:
+        log_fn(msg)
+
+
 def discover_audio_files(
-    input_path: Path,
+    input_path: Path | Sequence[Path],
     limit: int | None = None,
     random_sample: int | None = None,
     seed: int | None = None,
 ) -> list[Path]:
-    """Return list of supported audio files from a file or directory."""
-    if input_path.is_file():
-        files = [input_path] if input_path.suffix.lower() in SUPPORTED_EXTENSIONS else []
-    elif input_path.is_dir():
-        files = sorted(
-            p
-            for p in input_path.iterdir()
-            if p.is_file() and p.suffix.lower() in SUPPORTED_EXTENSIONS
-        )
-    else:
-        raise FileNotFoundError(f"Input path does not exist: {input_path}")
+    """Return list of supported audio files from a file, directory, or sequence of paths."""
+    paths = [input_path] if isinstance(input_path, Path) else list(input_path)
+    files: list[Path] = []
+    seen: set[Path] = set()
+
+    for p in paths:
+        if p.is_file():
+            if p.suffix.lower() in SUPPORTED_EXTENSIONS:
+                resolved = p.resolve()
+                if resolved not in seen:
+                    seen.add(resolved)
+                    files.append(p)
+        elif p.is_dir():
+            for child in sorted(p.iterdir()):
+                if child.is_file() and child.suffix.lower() in SUPPORTED_EXTENSIONS:
+                    resolved = child.resolve()
+                    if resolved not in seen:
+                        seen.add(resolved)
+                        files.append(child)
+        else:
+            raise FileNotFoundError(f"Input path does not exist: {p}")
 
     if random_sample is not None and random_sample > 0:
         rng = random.Random(seed)
@@ -227,6 +248,11 @@ def run_analyze_parallel(
     return [ordered[i] for i in sorted(ordered)]
 
 
+def _check_cancel(cancel_event: threading.Event | None) -> None:
+    if cancel_event is not None and cancel_event.is_set():
+        raise InterruptedError("Pipeline cancelled by user.")
+
+
 def _run_batch(
     batch_files: list[tuple[int, Path]],
     total_label: int,
@@ -239,12 +265,16 @@ def _run_batch(
     force: bool,
     rebuild: bool,
     strict: bool,
+    log_fn: LogCallback | None = None,
+    on_track_done: Callable[[bool], None] | None = None,
+    cancel_event: threading.Event | None = None,
 ) -> list[TrackMetadata]:
     """Process a batch of (idx, Path) items using cache + parallel worker pool in deterministic order."""
     ordered_tracks: dict[int, TrackMetadata] = {}
     pending_jobs: list[tuple[int, Path]] = []
 
     for idx, file_path in batch_files:
+        _check_cancel(cancel_event)
         status, cached = (
             ("miss", None)
             if rebuild
@@ -261,25 +291,29 @@ def _run_batch(
         if status == "verified" and cached is not None:
             ps = cached.post_stretch
             assert ps is not None
-            print(
+            _emit_log(
                 f"[{idx}/{total_label}] CACHED {file_path.name} | "
                 f"native={cached.pre_stretch.regression_native_bpm:.2f} -> "
                 f"target={cached.target_config.track_target_bpm:.1f} ({cached.target_config.harmonic_factor}x) | "
                 f"verified={ps.verified_regression_bpm:.2f} BPM | "
                 f"err={ps.sync_diagnostics.mean_abs_phase_error_ms:.1f}ms",
-                flush=True,
+                log_fn,
             )
             ordered_tracks[idx] = cached
+            if on_track_done is not None:
+                on_track_done(True)
         elif status == "skipped_deadzone" and cached is not None:
             r = cached.pre_stretch.planned_stretch_ratio
-            print(
+            _emit_log(
                 f"[{idx}/{total_label}] [WARN] Dropping dead-zone track '{file_path.name}': "
                 f"native={cached.pre_stretch.regression_native_bpm:.2f} BPM -> "
                 f"target={cached.target_config.track_target_bpm:.1f} BPM ({cached.target_config.harmonic_factor}x) "
                 f"requires {r:.3f}x stretch (outside [{min_stretch:.2f}x, {max_stretch:.2f}x]; "
                 f"pass -force to include)",
-                flush=True,
+                log_fn,
             )
+            if on_track_done is not None:
+                on_track_done(False)
         else:
             pending_jobs.append((idx, file_path))
 
@@ -290,8 +324,9 @@ def _run_batch(
         )
         if max_workers <= 1:
             for idx, file_path in pending_jobs:
+                _check_cancel(cancel_event)
                 try:
-                    print(f"[{idx}/{total_label}] Processing: {file_path.name} ...", flush=True)
+                    _emit_log(f"[{idx}/{total_label}] Processing: {file_path.name} ...", log_fn)
                     _, tm, msg = _process_track_job(
                         idx,
                         total_label,
@@ -303,20 +338,24 @@ def _run_batch(
                         max_stretch,
                         force=force,
                     )
-                    print(msg, flush=True)
+                    _emit_log(msg, log_fn)
                     if tm is not None:
                         ordered_tracks[idx] = tm
+                    if on_track_done is not None:
+                        on_track_done(tm is not None)
                 except Exception as exc:
                     if strict:
                         raise
-                    print(
+                    _emit_log(
                         f"[{idx}/{total_label}] [WARN] Skipping '{file_path.name}': {exc}",
-                        flush=True,
+                        log_fn,
                     )
+                    if on_track_done is not None:
+                        on_track_done(False)
         else:
-            print(
+            _emit_log(
                 f"Processing {len(pending_jobs)} uncached tracks across {max_workers} parallel workers ...",
-                flush=True,
+                log_fn,
             )
             with ProcessPoolExecutor(max_workers=max_workers, initializer=_init_worker) as pool:
                 futures = {
@@ -335,27 +374,36 @@ def _run_batch(
                     for idx, file_path in pending_jobs
                 }
                 for fut in as_completed(futures):
+                    if cancel_event is not None and cancel_event.is_set():
+                        for f in futures:
+                            f.cancel()
+                        pool.shutdown(wait=False, cancel_futures=True)
+                        raise InterruptedError("Pipeline cancelled by user.")
                     idx, file_path = futures[fut]
                     try:
                         _, tm, msg = fut.result()
-                        print(msg, flush=True)
+                        _emit_log(msg, log_fn)
                         if tm is not None:
                             ordered_tracks[idx] = tm
+                        if on_track_done is not None:
+                            on_track_done(tm is not None)
                     except Exception as exc:
                         if strict:
                             for f in futures:
                                 f.cancel()
                             raise
-                        print(
+                        _emit_log(
                             f"[{idx}/{total_label}] [WARN] Skipping '{file_path.name}': {exc}",
-                            flush=True,
+                            log_fn,
                         )
+                        if on_track_done is not None:
+                            on_track_done(False)
 
     return [ordered_tracks[i] for i in sorted(ordered_tracks)]
 
 
 def run_pipeline(
-    input_dir: Path,
+    input_dir: Path | Sequence[Path],
     output_mp3_path: Path,
     target_bpm: float = 180.0,
     crossfade_beats: int = 8,
@@ -374,10 +422,15 @@ def run_pipeline(
     force: bool = False,
     rebuild: bool = False,
     strict: bool = False,
+    log_fn: LogCallback | None = None,
+    progress_fn: ProgressCallback | None = None,
+    cancel_event: threading.Event | None = None,
 ) -> MashupManifest:
     """Execute full 7-step mashup pipeline across input_dir with parallel track processing."""
     if harmonic_factors is None:
         harmonic_factors = list(DEFAULT_HARMONIC_FACTORS)
+
+    _check_cancel(cancel_event)
 
     if random_sample is not None and random_sample > 0:
         all_files = discover_audio_files(input_dir)
@@ -388,7 +441,16 @@ def run_pipeline(
         verified_tracks: list[TrackMetadata] = []
         cursor = 0
         attempt_idx = 0
+        target_goal = min(random_sample, len(all_files))
+        if progress_fn is not None:
+            progress_fn(0, target_goal)
+
+        def _on_random_track_done(kept: bool) -> None:
+            if kept and progress_fn is not None:
+                progress_fn(min(len(verified_tracks) + 1, target_goal), target_goal)
+
         while len(verified_tracks) < random_sample and cursor < len(all_files):
+            _check_cancel(cancel_event)
             needed = random_sample - len(verified_tracks)
             chunk = all_files[cursor : cursor + needed]
             cursor += len(chunk)
@@ -406,17 +468,33 @@ def run_pipeline(
                 force=force,
                 rebuild=rebuild,
                 strict=strict,
+                log_fn=log_fn,
+                on_track_done=_on_random_track_done,
+                cancel_event=cancel_event,
             )
             verified_tracks.extend(batch_verified)
+            if progress_fn is not None:
+                progress_fn(min(len(verified_tracks), target_goal), target_goal)
         verified_tracks = verified_tracks[:random_sample]
     else:
         files = discover_audio_files(input_dir, limit=limit)
         if not files:
             raise ValueError(f"No supported audio files found in {input_dir}")
+        total_files = len(files)
+        done_counter = 0
+        if progress_fn is not None:
+            progress_fn(0, total_files)
+
+        def _on_seq_track_done(_kept: bool) -> None:
+            nonlocal done_counter
+            done_counter += 1
+            if progress_fn is not None:
+                progress_fn(done_counter, total_files)
+
         batch_items = list(enumerate(files, start=1))
         verified_tracks = _run_batch(
             batch_files=batch_items,
-            total_label=len(files),
+            total_label=total_files,
             target_bpm=target_bpm,
             harmonic_factors=harmonic_factors,
             work_dir=work_dir,
@@ -426,11 +504,16 @@ def run_pipeline(
             force=force,
             rebuild=rebuild,
             strict=strict,
+            log_fn=log_fn,
+            on_track_done=_on_seq_track_done,
+            cancel_event=cancel_event,
         )
-    print(
+
+    _check_cancel(cancel_event)
+    _emit_log(
         f"\nAssembling {len(verified_tracks)} tracks @ {target_bpm:.1f} BPM "
         f"(crossfade={crossfade_beats} beats) -> {output_mp3_path} ...",
-        flush=True,
+        log_fn,
     )
     manifest = assemble_mashup(
         tracks=verified_tracks,
@@ -442,9 +525,9 @@ def run_pipeline(
         metronome_gain_db=metronome_gain_db,
         enable_metronome=enable_metronome,
     )
-    print(
+    _emit_log(
         f"Done! Output: {manifest.output_mp3_path} "
         f"({manifest.total_duration_sec / 60.0:.2f} min, {manifest.total_metronome_beats} beats)",
-        flush=True,
+        log_fn,
     )
     return manifest

@@ -145,6 +145,25 @@ def main() -> None:
         assert len(rand_manifest.tracks) == 2
         assert "song3_120bpm_deadzone.wav" not in [t.file_name for t in rand_manifest.tracks]
 
+        # 7. Multi-path input queue & GUI log/progress callback check
+        logs: list[str] = []
+        progress_steps: list[tuple[int, int]] = []
+        gui_mp3 = tmp_dir / "out_gui" / "mashup.mp3"
+        gui_manifest = run_pipeline(
+            input_dir=[s2, s1],
+            output_mp3_path=gui_mp3,
+            target_bpm=180.0,
+            crossfade_beats=8,
+            work_dir=tmp_dir / "work_par",
+            workers=2,
+            force=False,
+            log_fn=logs.append,
+            progress_fn=lambda d, t: progress_steps.append((d, t)),
+        )
+        assert [t.file_name for t in gui_manifest.tracks] == ["song2_165bpm.wav", "song1_80bpm.wav"]
+        assert len(logs) >= 2
+        assert progress_steps[-1] == (2, 2)
+
     print("ALL SELF-CHECKS PASSED.")
 
 

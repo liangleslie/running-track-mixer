@@ -31,7 +31,24 @@ uv sync
 
 ## Quickstart
 
-### Build a mashup from a folder (default `180.0 BPM`)
+### Launch the Desktop GUI (`CustomTkinter`)
+
+```bash
+uv run rtmix gui
+# or simply:
+uv run rtmix
+```
+
+Features:
+- **Add Files / Add Folder / Drag & Drop** from Explorer with queued track counter
+- **Target Tempo (BPM)** slider (`120–220 BPM`, default `180.0`)
+- **CPU Workers (Cores)** slider (`1` to max cores)
+- **Metronome Click** toggle + **Click Gain (dB)** slider (`-18.0` to `0.0 dB`, default `-6.0 dB`)
+- **Pick Random N** tracks (`--random`) + optional **Seed**
+- **Collapsible Advanced Settings**: Min/Max stretch ratio (`0.85x–1.35x`), Force dead-zone tracks (`-force`), Crossfade/Lead-in/Lead-out beats (`8`), and Rebuild cache (`--rebuild`)
+- **Live Progress Bar + Log Console + Cancel Button + 1-Click Open Output Folder**
+
+### Build a mashup from a folder via CLI (default `180.0 BPM`)
 
 ```bash
 uv run rtmix build -i tracks -o output/mashup.mp3

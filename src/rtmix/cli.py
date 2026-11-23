@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import multiprocessing
 from pathlib import Path
 import sys
 
@@ -241,12 +242,26 @@ def build_parser() -> argparse.ArgumentParser:
     p_verify.add_argument("work_dir", nargs="?", default="work", help="Working cache directory")
     p_verify.set_defaults(func=cmd_verify)
 
+    # rtmix gui
+    p_gui = sub.add_parser("gui", help="Launch the CustomTkinter desktop GUI")
+    p_gui.set_defaults(func=cmd_gui)
+
     return parser
 
 
+def cmd_gui(_args: argparse.Namespace | None = None) -> int:
+    from rtmix.gui import main as gui_main
+
+    return gui_main()
+
+
 def main(argv: list[str] | None = None) -> int:
+    multiprocessing.freeze_support()
+    effective_argv = sys.argv[1:] if argv is None else argv
+    if not effective_argv:
+        return cmd_gui()
     parser = build_parser()
-    args = parser.parse_args(argv)
+    args = parser.parse_args(effective_argv)
     return int(args.func(args))
 
 
