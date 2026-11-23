@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 from pathlib import Path
-import subprocess
 
 from rtmix.analyzer import SAMPLE_RATE, verify_stretched_track
 from rtmix.models import TrackMetadata
-from rtmix.runtime import resolve_binary, subprocess_kwargs
+from rtmix.runtime import resolve_binary, run_checked
 
 BPM_TOLERANCE = 0.80
 
@@ -47,7 +46,7 @@ def run_ffmpeg_stretch_and_normalize(
         "pcm_f32le",
         str(output_wav_path),
     ]
-    subprocess.run(cmd, check=True, **subprocess_kwargs())
+    run_checked(cmd, text=True)
 
 
 def process_and_verify_track(

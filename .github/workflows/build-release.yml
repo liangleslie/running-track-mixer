@@ -58,14 +58,21 @@ jobs:
           Remove-Item ffmpeg.zip
           Remove-Item -Recurse -Force ffmpeg_tmp
 
-      - name: Install FFmpeg with rubberband via Homebrew (macOS)
+      - name: Cache static FFmpeg + FFprobe (macOS)
         if: runner.os == 'macOS'
-        env:
-          HOMEBREW_NO_AUTO_UPDATE: "1"
-          HOMEBREW_NO_INSTALL_CLEANUP: "1"
-        run: |
-          brew install ffmpeg-full
-          echo "$(brew --prefix ffmpeg-full)/bin" >> "$GITHUB_PATH"
+        id: cache-macos-ffmpeg
+        uses: actions/cache@v6
+        with:
+          path: packaging/bin
+          key: macos-arm64-ffmpeg-${{ hashFiles('scripts/build_macos_ffmpeg.sh') }}
+
+      - name: Build static FFmpeg + FFprobe (macOS)
+        if: runner.os == 'macOS' && steps.cache-macos-ffmpeg.outputs.cache-hit != 'true'
+        run: bash scripts/build_macos_ffmpeg.sh
+
+      - name: Ensure executable bit on cached FFmpeg (macOS)
+        if: runner.os == 'macOS' && steps.cache-macos-ffmpeg.outputs.cache-hit == 'true'
+        run: chmod +x packaging/bin/ffmpeg packaging/bin/ffprobe
 
       - name: Set up uv
         uses: astral-sh/setup-uv@v7

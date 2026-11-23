@@ -65,6 +65,16 @@ def subprocess_kwargs() -> dict[str, Any]:
     return {}
 
 
+def run_checked(cmd: list[str], *, text: bool = False) -> subprocess.CompletedProcess[Any]:
+    """Run external binary (`ffmpeg`/`ffprobe`) and include stderr in exception on failure."""
+    res = subprocess.run(cmd, capture_output=True, text=text, **subprocess_kwargs())
+    if res.returncode != 0:
+        raw_err = res.stderr if isinstance(res.stderr, str) else res.stderr.decode("utf-8", errors="replace")
+        detail = raw_err.strip() or f"signal/exit code {res.returncode}"
+        raise RuntimeError(f"{Path(cmd[0]).name} failed (rc={res.returncode}): {detail}")
+    return res
+
+
 def default_work_dir() -> Path:
     """Return default cache directory (CWD `work` in dev, OS user cache dir when frozen)."""
     if not is_frozen():

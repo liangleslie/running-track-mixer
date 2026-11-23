@@ -5,7 +5,6 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-import subprocess
 from pathlib import Path
 
 import librosa
@@ -22,7 +21,7 @@ from rtmix.models import (
     TargetConfig,
     TrackMetadata,
 )
-from rtmix.runtime import resolve_binary, subprocess_kwargs
+from rtmix.runtime import resolve_binary, run_checked
 
 SAMPLE_RATE = 44100
 HOP_COARSE = 512
@@ -60,7 +59,7 @@ def probe_source_info(path: Path) -> SourceInfo:
         "json",
         str(path),
     ]
-    res = subprocess.run(cmd, capture_output=True, text=True, check=True, **subprocess_kwargs())
+    res = run_checked(cmd, text=True)
     info = json.loads(res.stdout)
     stream = (info.get("streams") or [{}])[0]
     fmt = info.get("format") or {}
@@ -102,7 +101,7 @@ def decode_audio_mono(path: Path, sr: int = SAMPLE_RATE) -> np.ndarray:
         str(sr),
         "-",
     ]
-    res = subprocess.run(cmd, capture_output=True, check=True, **subprocess_kwargs())
+    res = run_checked(cmd, text=False)
     return np.frombuffer(res.stdout, dtype=np.float32).copy()
 
 
