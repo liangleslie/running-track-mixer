@@ -243,7 +243,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_verify.set_defaults(func=cmd_verify)
 
     # rtmix gui
-    p_gui = sub.add_parser("gui", help="Launch the CustomTkinter desktop GUI")
+    p_gui = sub.add_parser("gui", help="Launch the desktop GUI (PySide6 / Qt 6)")
     p_gui.set_defaults(func=cmd_gui)
 
     return parser

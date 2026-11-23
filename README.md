@@ -31,7 +31,7 @@ uv sync
 
 ## Quickstart
 
-### Launch the Desktop GUI (`CustomTkinter`)
+### Launch the Desktop GUI (`PySide6` / Qt 6)
 
 ```bash
 uv run rtmix gui

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 import tempfile
 
@@ -163,6 +164,23 @@ def main() -> None:
         assert [t.file_name for t in gui_manifest.tracks] == ["song2_165bpm.wav", "song1_80bpm.wav"]
         assert len(logs) >= 2
         assert progress_steps[-1] == (2, 2)
+
+        # 8. Headless PySide6 GUI construction & controls self-check
+        os.environ["QT_QPA_PLATFORM"] = "offscreen"
+        from PySide6.QtWidgets import QApplication
+        from rtmix.gui import RtmixMainWindow, apply_dark_fusion_theme
+
+        qt_app = QApplication.instance()
+        if not isinstance(qt_app, QApplication):
+            qt_app = QApplication([])
+        apply_dark_fusion_theme(qt_app)
+        win = RtmixMainWindow()
+        win._add_paths_to_queue([s2, s1])
+        assert len(win.queued_paths) == 2
+        win._toggle_advanced()
+        assert win.adv_toggle_btn.isChecked() is True
+        assert win.adv_frame.isHidden() is False
+        win.close()
 
     print("ALL SELF-CHECKS PASSED.")
 
