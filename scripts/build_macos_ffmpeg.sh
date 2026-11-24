@@ -72,7 +72,7 @@ PKG_CONFIG_PATH="$PREFIX/lib/pkgconfig" ./configure \
   --enable-librubberband \
   --enable-ffmpeg \
   --enable-ffprobe \
-  --enable-protocol=file,pipe \
+  --enable-protocol=file,pipe,fd \
   --enable-demuxer=aac,ac3,aiff,ape,asf,au,caf,flac,matroska,mov,mp3,ogg,pcm_f32le,pcm_s16le,pcm_s24le,pcm_s32le,pcm_u8,wav,wv \
   --enable-muxer=mp3,wav,pcm_f32le,pcm_s16le,null \
   --enable-decoder=aac,aac_fixed,aac_latm,ac3,alac,ape,eac3,flac,mp1,mp1float,mp2,mp2float,mp3,mp3adu,mp3adufloat,mp3float,mp3on4,mp3on4float,opus,pcm_f32be,pcm_f32le,pcm_f64be,pcm_f64le,pcm_s16be,pcm_s16le,pcm_s24be,pcm_s24le,pcm_s32be,pcm_s32le,pcm_u8,vorbis,wavpack,wmav1,wmav2,wmalossless,wmapro \
@@ -95,4 +95,7 @@ if otool -L "$OUT_DIR/ffmpeg" "$OUT_DIR/ffprobe" | grep -q "/opt/homebrew"; then
 fi
 "$OUT_DIR/ffmpeg" -filters | grep -q rubberband
 "$OUT_DIR/ffmpeg" -encoders | grep -q libmp3lame
+"$OUT_DIR/ffmpeg" -v error -protocols | grep -q fd
+dd if=/dev/zero bs=3528 count=10 2>/dev/null | "$OUT_DIR/ffmpeg" -v error -y -f f32le -ar 44100 -ac 2 -i - -c:a libmp3lame -b:a 192k "$WORK_DIR/test.mp3"
+"$OUT_DIR/ffmpeg" -nostdin -v error -i "$WORK_DIR/test.mp3" -f f32le -ac 1 -ar 44100 - >/dev/null
 echo "Static macOS FFmpeg + FFprobe ready in $OUT_DIR"
