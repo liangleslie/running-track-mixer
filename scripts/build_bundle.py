@@ -138,9 +138,32 @@ def run_smoke_tests(exe_path: Path) -> None:
             timeout=180,
         )
         if res.returncode != 0 or not out_mp3.is_file() or out_mp3.stat().st_size <= 10_000:
+            diag_cmd = [
+                str(exe_path),
+                "build",
+                "-i",
+                str(in_dir),
+                "-o",
+                str(out_mp3),
+                "--work-dir",
+                str(work_dir),
+                "-j",
+                "1",
+                "--strict",
+            ]
+            diag_res = subprocess.run(
+                diag_cmd,
+                env=dsp_env,
+                stdin=subprocess.DEVNULL,
+                capture_output=True,
+                text=True,
+                timeout=180,
+            )
             raise RuntimeError(
                 f"Frozen DSP build failed (rc={res.returncode}):\n"
-                f"STDOUT:\n{res.stdout}\nSTDERR:\n{res.stderr}"
+                f"STDOUT:\n{res.stdout}\nSTDERR:\n{res.stderr}\n"
+                f"--- Single-worker diagnostic (-j 1 --strict, rc={diag_res.returncode}) ---\n"
+                f"STDOUT:\n{diag_res.stdout}\nSTDERR:\n{diag_res.stderr}"
             )
         print(
             f"Smoke Test B passed: Frozen 2-worker mashup built ({out_mp3.stat().st_size} bytes).",

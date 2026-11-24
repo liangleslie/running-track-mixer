@@ -78,10 +78,10 @@ jobs:
         uses: astral-sh/setup-uv@v7
 
       - name: Install dependencies
-        run: uv sync --dev
+        run: uv sync --python 3.13 --dev
 
       - name: Build, smoke-test, and archive portable bundle
-        run: uv run python scripts/build_bundle.py --smoke-test --archive
+        run: uv run --python 3.13 python scripts/build_bundle.py --smoke-test --archive
 
       - name: Upload portable release artifact
         uses: actions/upload-artifact@v7

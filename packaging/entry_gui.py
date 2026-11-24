@@ -2,9 +2,18 @@
 
 from __future__ import annotations
 
+import atexit
 import multiprocessing
 import os
+import shutil
 import sys
+import tempfile
+
+# Avoid OpenMP/workqueue collision and read-only bundle / parallel Numba cache races
+os.environ.setdefault("NUMBA_THREADING_LAYER", "workqueue")
+_NUMBA_TMP_DIR = os.path.join(tempfile.gettempdir(), f"rtmix_numba_{os.getpid()}")
+os.environ["NUMBA_CACHE_DIR"] = _NUMBA_TMP_DIR
+atexit.register(shutil.rmtree, _NUMBA_TMP_DIR, True)
 
 # Must execute before importing PySide6, librosa, scipy, or rtmix so frozen
 # ProcessPoolExecutor workers terminate without re-launching the Qt UI.

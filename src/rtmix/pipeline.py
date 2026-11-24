@@ -34,6 +34,7 @@ def default_workers() -> int:
 
 def _init_worker() -> None:
     """Cap internal BLAS/OpenMP/Numba thread pools per worker to prevent CPU thrashing."""
+    os.environ.setdefault("NUMBA_THREADING_LAYER", "workqueue")
     for var in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "NUMBA_NUM_THREADS"):
         os.environ.setdefault(var, "2")
 

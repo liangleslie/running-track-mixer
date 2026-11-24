@@ -79,6 +79,7 @@ a = Analysis(
 )
 
 pyz = PYZ(a.pure)
+mac_entitlements = str(ROOT / "packaging" / "entitlements.plist") if IS_MAC else None
 
 exe = EXE(
     pyz,
@@ -92,6 +93,7 @@ exe = EXE(
     upx=False,
     console=False,
     disable_windowed_traceback=False,
+    entitlements_file=mac_entitlements,
 )
 
 coll = COLLECT(
@@ -109,6 +111,7 @@ if IS_MAC:
         coll,
         name="RunningTracksMixer.app",
         bundle_identifier="com.rtmix.runningtracksmixer",
+        entitlements_file=mac_entitlements,
         info_plist={
             "NSHighResolutionCapable": True,
             "CFBundleDisplayName": "Running Tracks Mixer",
