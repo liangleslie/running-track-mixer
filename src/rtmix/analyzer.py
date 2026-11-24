@@ -4,10 +4,20 @@ from __future__ import annotations
 
 import hashlib
 import json
-import re
+import os
 from pathlib import Path
+import re
 
-import librosa
+# ponytail: Numba's disk cache (FunctionCache + GufWrapperCache via UserWideCacheLocator)
+# writes separate .nbi/.nbc kernel & wrapper files without cross-process locking; concurrent
+# ProcessPoolExecutor workers race and produce NULL ufunc pointers (SIGSEGV at gufunc.py:263).
+# Returning NullCache() keeps full in-memory LLVM JIT with zero disk race or cache poisoning.
+os.environ.setdefault("NUMBA_THREADING_LAYER", "workqueue")
+from numba.core import caching as _numba_caching  # noqa: E402
+
+_numba_caching.Cache.__new__ = lambda cls, *a, **kw: _numba_caching.NullCache()  # type: ignore[method-assign]
+
+import librosa  # noqa: E402
 import numpy as np
 from scipy.stats import theilslopes
 import soundfile as sf
