@@ -87,7 +87,14 @@ def run_smoke_tests(exe_path: Path) -> None:
     # Check A: Frozen PySide6 GUI offscreen startup
     gui_env = os.environ.copy()
     gui_env["QT_QPA_PLATFORM"] = "offscreen"
-    gui_res = subprocess.run([str(exe_path), "--self-test-gui"], env=gui_env, capture_output=True, text=True)
+    gui_res = subprocess.run(
+        [str(exe_path), "--self-test-gui"],
+        env=gui_env,
+        stdin=subprocess.DEVNULL,
+        capture_output=True,
+        text=True,
+        timeout=180,
+    )
     if gui_res.returncode != 0 or "SELF_TEST_GUI_OK" not in gui_res.stdout:
         raise RuntimeError(
             f"Frozen GUI self-test failed (rc={gui_res.returncode}):\n"
@@ -122,7 +129,14 @@ def run_smoke_tests(exe_path: Path) -> None:
             "-j",
             "2",
         ]
-        res = subprocess.run(cmd, env=dsp_env, capture_output=True, text=True)
+        res = subprocess.run(
+            cmd,
+            env=dsp_env,
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            text=True,
+            timeout=180,
+        )
         if res.returncode != 0 or not out_mp3.is_file() or out_mp3.stat().st_size <= 10_000:
             raise RuntimeError(
                 f"Frozen DSP build failed (rc={res.returncode}):\n"

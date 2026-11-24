@@ -29,6 +29,7 @@ def run_ffmpeg_stretch_and_normalize(
     )
     cmd = [
         resolve_binary("ffmpeg"),
+        "-nostdin",
         "-y",
         "-v",
         "error",

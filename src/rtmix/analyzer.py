@@ -87,6 +87,7 @@ def decode_audio_mono(path: Path, sr: int = SAMPLE_RATE) -> np.ndarray:
 
     cmd = [
         resolve_binary("ffmpeg"),
+        "-nostdin",
         "-v",
         "error",
         "-threads",

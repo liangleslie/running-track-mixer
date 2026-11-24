@@ -34,6 +34,7 @@ meson setup build \
   --prefix="$PREFIX" \
   --libdir=lib \
   --default-library=static \
+  -Dcpp_args="-include stddef.h" \
   -Dfft=vdsp \
   -Dresampler=builtin \
   -Dcmdline=disabled \
