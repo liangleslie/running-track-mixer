@@ -38,12 +38,12 @@ binaries = [
 hiddenimports = []
 
 # librosa and scipy use lazy_loader stub (.pyi) inspection at import time
-datas += collect_data_files("librosa", include_py_files=True)
+datas += collect_data_files("librosa", excludes=["**/__pycache__"])
 hiddenimports += collect_submodules("librosa")
 datas += collect_data_files("scipy", includes=["**/*.pyi"])
 
 try:
-    datas += collect_data_files("_soundfile_data")
+    datas += collect_data_files("_soundfile_data", excludes=["**/__pycache__"])
     binaries += collect_dynamic_libs("_soundfile_data")
 except Exception:
     pass

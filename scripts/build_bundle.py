@@ -87,6 +87,7 @@ def run_smoke_tests(exe_path: Path) -> None:
     # Check A: Frozen PySide6 GUI offscreen startup
     gui_env = os.environ.copy()
     gui_env["QT_QPA_PLATFORM"] = "offscreen"
+    gui_env["PYTHONFAULTHANDLER"] = "1"
     gui_res = subprocess.run(
         [str(exe_path), "--self-test-gui"],
         env=gui_env,
@@ -115,6 +116,7 @@ def run_smoke_tests(exe_path: Path) -> None:
 
         dsp_env = os.environ.copy()
         dsp_env["PATH"] = "C:\\Windows\\System32" if sys.platform.startswith("win") else ""
+        dsp_env["PYTHONFAULTHANDLER"] = "1"
         dsp_env.pop("RTMIX_BIN_DIR", None)
 
         cmd = [

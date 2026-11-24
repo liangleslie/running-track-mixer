@@ -2,18 +2,13 @@
 
 from __future__ import annotations
 
-import atexit
+import faulthandler
 import multiprocessing
 import os
-import shutil
 import sys
-import tempfile
 
-# Avoid OpenMP/workqueue collision and read-only bundle / parallel Numba cache races
+# Avoid OpenMP/workqueue collision across workers
 os.environ.setdefault("NUMBA_THREADING_LAYER", "workqueue")
-_NUMBA_TMP_DIR = os.path.join(tempfile.gettempdir(), f"rtmix_numba_{os.getpid()}")
-os.environ["NUMBA_CACHE_DIR"] = _NUMBA_TMP_DIR
-atexit.register(shutil.rmtree, _NUMBA_TMP_DIR, True)
 
 # Must execute before importing PySide6, librosa, scipy, or rtmix so frozen
 # ProcessPoolExecutor workers terminate without re-launching the Qt UI.
@@ -46,6 +41,10 @@ def _run_gui_self_test() -> int:
 
 def main() -> int:
     _ensure_std_streams()
+    try:
+        faulthandler.enable()
+    except Exception:
+        pass
     user_args = [a for a in sys.argv[1:] if not a.startswith("-psn_")]
 
     if user_args == ["--self-test-gui"]:
